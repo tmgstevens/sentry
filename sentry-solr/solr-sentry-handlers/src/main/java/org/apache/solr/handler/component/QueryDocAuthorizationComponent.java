@@ -17,26 +17,19 @@
 
 package org.apache.solr.handler.component;
 
+import com.google.common.base.Joiner;
+import org.apache.solr.common.SolrException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import org.apache.sentry.binding.solr.authz.SentrySolrPluginImpl;
-import org.apache.sentry.core.common.exception.SentryUserException;
-import org.apache.solr.common.SolrException;
 import org.apache.solr.common.params.ModifiableSolrParams;
 import org.apache.solr.common.params.SolrParams;
 import org.apache.solr.common.util.NamedList;
-import org.apache.solr.core.SolrCore;
-import org.apache.solr.request.LocalSolrQueryRequest;
-import org.apache.solr.request.SolrQueryRequest;
-import org.apache.solr.security.AuthorizationPlugin;
 
 import java.io.IOException;
 import java.util.Set;
 
-import javax.servlet.http.HttpServletRequest;
-
-public class QueryDocAuthorizationComponent extends SearchComponent
+public class QueryDocAuthorizationComponent extends DocAuthorizationComponent
 {
   private static final Logger LOG =
     LoggerFactory.getLogger(QueryDocAuthorizationComponent.class);
@@ -44,10 +37,29 @@ public class QueryDocAuthorizationComponent extends SearchComponent
   public static final String DEFAULT_AUTH_FIELD = "sentry_auth";
   public static final String ALL_ROLES_TOKEN_PROP = "allRolesToken";
   public static final String ENABLED_PROP = "enabled";
-  private static final String superUser = System.getProperty("solr.authorization.superuser", "solr");
+  public static final String MODE_PROP = "matchMode";
+  public static final String DEFAULT_MODE_PROP = MatchType.DISJUNCTIVE.toString();
+
+  public static String ALLOW_MISSING_VAL_PROP = "allow_missing_val";
+  public static String TOKEN_COUNT_PROP = "tokenCountField";
+  public static String DEFAULT_TOKEN_COUNT_FIELD = "sentry_auth_count";
+  public static String QPARSER_NAME = "qParser";
+
+
   private String authField;
   private String allRolesToken;
   private boolean enabled;
+  private MatchType matchMode;
+  private String tokenCountField;
+  private boolean allowMissingValue;
+
+  private String qParserName;
+
+
+  private enum MatchType {
+    DISJUNCTIVE,
+    CONJUNCTIVE
+  }
 
   @Override
   public void init(NamedList args) {
@@ -58,23 +70,34 @@ public class QueryDocAuthorizationComponent extends SearchComponent
     LOG.info("QueryDocAuthorizationComponent allRolesToken: " + this.allRolesToken);
     this.enabled = params.getBool(ENABLED_PROP, false);
     LOG.info("QueryDocAuthorizationComponent enabled: " + this.enabled);
+    this.matchMode = MatchType.valueOf(params.get(MODE_PROP, DEFAULT_MODE_PROP).toUpperCase());
+    LOG.info("QueryDocAuthorizationComponent matchType: " + this.matchMode);
+
+    if (this.matchMode == MatchType.CONJUNCTIVE) {
+      this.qParserName = params.get(QPARSER_NAME, "subset").trim();
+      LOG.debug("QueryDocAuthorizationComponent qParserName: " + this.qParserName);
+      this.allowMissingValue = params.getBool(ALLOW_MISSING_VAL_PROP, false);
+      LOG.debug("QueryDocAuthorizationComponent allowMissingValue: " + this.allowMissingValue);
+      this.tokenCountField = params.get(TOKEN_COUNT_PROP, DEFAULT_TOKEN_COUNT_FIELD);
+      LOG.debug("QueryDocAuthorizationComponent tokenCountField: " + this.tokenCountField);
+    }
   }
 
-  private void addRawClause(StringBuilder builder, String authField, String value) {
+  private void addDisjunctiveRawClause(StringBuilder builder, String authField, String value) {
     // requires a space before the first term, so the
     // default lucene query parser will be used
     builder.append(" {!raw f=").append(authField).append(" v=")
       .append(value).append("}");
   }
 
-  public String getFilterQueryStr(Set<String> roles) {
+  public String getDisjunctiveFilterQueryStr(Set<String> roles) {
     if (roles != null && roles.size() > 0) {
       StringBuilder builder = new StringBuilder();
       for (String role : roles) {
-        addRawClause(builder, authField, role);
+        addDisjunctiveRawClause(builder, authField, role);
       }
       if (allRolesToken != null && !allRolesToken.isEmpty()) {
-        addRawClause(builder, authField, allRolesToken);
+        addDisjunctiveRawClause(builder, authField, allRolesToken);
       }
       return builder.toString();
     }
@@ -94,8 +117,12 @@ public class QueryDocAuthorizationComponent extends SearchComponent
 
     Set<String> roles = getRoles(rb.req, userName);
     if (roles != null && !roles.isEmpty()) {
-      String filterQuery = getFilterQueryStr(roles);
-
+      String filterQuery;
+      if ( matchMode == MatchType.DISJUNCTIVE ) {
+        filterQuery = getDisjunctiveFilterQueryStr(roles);
+      } else {
+        filterQuery = getConjunctiveFilterQueryStr(roles);
+      }
       ModifiableSolrParams newParams = new ModifiableSolrParams(rb.req.getParams());
       newParams.add("fq", filterQuery);
       rb.req.setParams(newParams);
@@ -110,6 +137,24 @@ public class QueryDocAuthorizationComponent extends SearchComponent
     }
   }
 
+  private String getConjunctiveFilterQueryStr(Set<String> roles) {
+    StringBuilder filterQuery = new StringBuilder();
+    filterQuery.append(" {!").append(qParserName).append(" set_field=\"").append(authField).append("\"")
+        .append(" set_value=\"").append(Joiner.on(',').join(roles.iterator())).append("\"")
+        .append(" count_field=\"").append(tokenCountField).append("\"");
+    if (allRolesToken != null && !allRolesToken.equals("")) {
+      filterQuery.append(" wildcard_token=\"").append(allRolesToken).append("\"");
+    }
+    if (allowMissingValue) {
+      filterQuery.append(" allow_missing_val=true");
+    } else {
+      filterQuery.append(" allow_missing_val=false");
+    }
+    filterQuery.append(" }");
+
+    return filterQuery.toString();
+  }
+
   @Override
   public void process(ResponseBuilder rb) throws IOException {
   }
@@ -121,59 +166,6 @@ public class QueryDocAuthorizationComponent extends SearchComponent
 
   public boolean getEnabled() {
     return enabled;
-  }
-
-  /**
-   * This method return the user name from the provided {@linkplain SolrQueryRequest}
-   */
-  private String getUserName (SolrQueryRequest req) {
-    // If a local request, treat it like a super user request; i.e. it is equivalent to an
-    // http request from the same process.
-    if (req instanceof LocalSolrQueryRequest) {
-      return superUser;
-    }
-
-    SolrCore solrCore = req.getCore();
-
-    HttpServletRequest httpServletRequest = (HttpServletRequest)req.getContext().get("httpRequest");
-    if (httpServletRequest == null) {
-      StringBuilder builder = new StringBuilder("Unable to locate HttpServletRequest");
-      if (solrCore != null && solrCore.getSolrConfig().getBool(
-        "requestDispatcher/requestParsers/@addHttpRequestToContext", true) == false) {
-        builder.append(", ensure requestDispatcher/requestParsers/@addHttpRequestToContext is set to true in solrconfig.xml");
-      }
-      throw new SolrException(SolrException.ErrorCode.UNAUTHORIZED, builder.toString());
-    }
-
-    String userName = httpServletRequest.getRemoteUser();
-    if (userName == null) {
-      userName = SentrySolrPluginImpl.getShortUserName(httpServletRequest.getUserPrincipal());
-    }
-    if (userName == null) {
-      throw new SolrException(SolrException.ErrorCode.UNAUTHORIZED, "This request is not authenticated.");
-    }
-
-    return userName;
-  }
-
-  /**
-   * This method returns the roles associated with the specified <code>userName</code>
-   */
-  private Set<String> getRoles (SolrQueryRequest req, String userName) {
-    SolrCore solrCore = req.getCore();
-
-    AuthorizationPlugin plugin = solrCore.getCoreContainer().getAuthorizationPlugin();
-    if (!(plugin instanceof SentrySolrPluginImpl)) {
-      throw new SolrException(SolrException.ErrorCode.UNAUTHORIZED, getClass().getSimpleName() +
-          " can only be used with Sentry authorization plugin for Solr");
-    }
-    try {
-      return ((SentrySolrPluginImpl)plugin).getRoles(userName);
-    } catch (SentryUserException e) {
-      throw new SolrException(SolrException.ErrorCode.UNAUTHORIZED,
-        "Request from user: " + userName +
-        " rejected due to SentryUserException: ", e);
-    }
   }
 
 }

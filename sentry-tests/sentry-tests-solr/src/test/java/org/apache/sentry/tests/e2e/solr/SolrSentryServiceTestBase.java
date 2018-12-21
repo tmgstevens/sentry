@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+import com.google.common.collect.Sets;
 import org.apache.hadoop.security.UserGroupInformation;
 import org.apache.sentry.core.common.exception.SentryUserException;
 import org.apache.sentry.core.model.solr.SolrConstants;
@@ -90,6 +91,12 @@ public class SolrSentryServiceTestBase extends AbstractSolrSentryTestCase {
         .addConfig("cloud-managed", TEST_PATH().resolve("configsets").resolve("cloud-managed").resolve("conf"))
         .addConfig("cloud-minimal_doc_level_security", TEST_PATH().resolve("configsets")
                       .resolve("cloud-minimal_doc_level_security").resolve("conf"))
+        .addConfig("cloud-minimal_subset_match", TEST_PATH().resolve("configsets")
+                     .resolve("cloud-minimal_subset_match").resolve("conf"))
+        .addConfig("cloud-minimal_subset_match_missing_false", TEST_PATH().resolve("configsets")
+              .resolve("cloud-minimal_subset_match_missing_false").resolve("conf"))
+          .addConfig("cloud-minimal_abac", TEST_PATH().resolve("configsets")
+              .resolve("cloud-minimal_abac").resolve("conf"))
         .configure();
       log.info("Successfully started Solr service");
 
@@ -204,6 +211,44 @@ public class SolrSentryServiceTestBase extends AbstractSolrSentryTestCase {
     result.put("solr", Collections.singleton("solr"));
     result.put("junit", Collections.singleton("junit"));
     result.put("doclevel", Collections.singleton("doclevel"));
+    result.put("user3", Collections.singleton("group3"));
+
+    result.put("subset_user_012", Sets.newHashSet("subset_group0", "subset_group1", "subset_group2", "subset_nogroup"));
+    result.put("subset_user_013", Sets.newHashSet("subset_group0", "subset_group1", "subset_group3", "subset_nogroup"));
+    result.put("subset_user_023", Sets.newHashSet("subset_group0", "subset_group2", "subset_group3", "subset_nogroup"));
+    result.put("subset_user_123", Sets.newHashSet("subset_group1", "subset_group2", "subset_group3", "subset_nogroup"));
+    result.put("subset_user_0", Sets.newHashSet("subset_group0", "subset_nogroup"));
+    result.put("subset_user_2", Sets.newHashSet("subset_group2", "subset_nogroup"));
+    result.put("subset_user_01", Sets.newHashSet("subset_group0", "subset_group1", "subset_nogroup", "subset_delete"));
+    result.put("subset_user_23", Sets.newHashSet("subset_group2", "subset_group3", "subset_nogroup"));
+    result.put("subset_user_0123", Sets.newHashSet("subset_group0", "subset_group1", "subset_group2", "subset_group3", "subset_nogroup", "subset_delete"));
+    result.put("subset_user_no", Sets.newHashSet("subset_nogroup"));
+
+    result.put("abacuser1", Sets.newHashSet("abac_group"));
+    result.put("abacuser2", Sets.newHashSet("abac_group"));
+    result.put("abacuser3", Sets.newHashSet("abac_group"));
+    result.put("abacuser4", Sets.newHashSet("abac_group"));
+    result.put("abacuser5", Sets.newHashSet("abac_group"));
+
+    result.put("lteuser1", Sets.newHashSet("abac_group"));
+    result.put("lteuser2", Sets.newHashSet("abac_group"));
+    result.put("lteuser3", Sets.newHashSet("abac_group"));
+
+    result.put("gteuser1", Sets.newHashSet("abac_group"));
+    result.put("gteuser2", Sets.newHashSet("abac_group"));
+    result.put("gteuser3", Sets.newHashSet("abac_group"));
+
+    result.put("oruser1", Sets.newHashSet("abac_group"));
+    result.put("oruser2", Sets.newHashSet("abac_group"));
+    result.put("oruser3", Sets.newHashSet("abac_group"));
+
+    result.put("anduser1", Sets.newHashSet("abac_group"));
+    result.put("anduser2", Sets.newHashSet("abac_group"));
+    result.put("anduser3", Sets.newHashSet("abac_group"));
+
+    result.put("nesteduser1", Sets.newHashSet("abac_group"));
+    result.put("nesteduser2", Sets.newHashSet("abac_group"));
+
     return Collections.unmodifiableMap(result);
   }
 
