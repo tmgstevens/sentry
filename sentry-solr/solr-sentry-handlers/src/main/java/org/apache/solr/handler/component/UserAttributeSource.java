@@ -21,8 +21,26 @@ import com.google.common.collect.Multimap;
 
 import java.util.Collection;
 
+/**
+ * Interface for a source for user attributes. Instances are configurable by an implementation
+ * of {@link UserAttributeSourceParams} which can be obtained via getParamsClass.
+ */
 public interface UserAttributeSource {
+    /**
+     * @param userName
+     * @return Multimap of attributes for the given user in the form attributeName->Set(values)
+     */
     Multimap<String, String> getAttributesForUser(String userName);
+
+    /**
+     * @return The implementation of {@link UserAttributeSourceParams} that is used to configure
+     * this class.
+     */
     Class<? extends UserAttributeSourceParams> getParamsClass();
+
+    /**
+     * @param params An instance of {@link UserAttributeSourceParams} to configure this class
+     * @param attributes Specifies the possible attributes that will be returned as part of the search
+     */
     void init(UserAttributeSourceParams params, Collection<String> attributes);
 }
