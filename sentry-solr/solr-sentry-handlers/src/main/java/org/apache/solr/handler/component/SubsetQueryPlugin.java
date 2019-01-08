@@ -16,9 +16,7 @@
  */
 package org.apache.solr.handler.component;
 
-import java.util.ArrayList;
-import java.util.Collection;
-
+import com.google.common.base.Preconditions;
 import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
@@ -35,7 +33,8 @@ import org.apache.solr.search.QParser;
 import org.apache.solr.search.QParserPlugin;
 import org.apache.solr.search.SyntaxError;
 
-import com.google.common.base.Preconditions;
+import java.util.ArrayList;
+import java.util.Collection;
 
 /**
  * A custom {@linkplain QParserPlugin} which supports subset queries on a given Solr index.
@@ -50,6 +49,7 @@ public class SubsetQueryPlugin extends QParserPlugin {
   public static final String WILDCARD_CHAR = "wildcard_token";
 
   @SuppressWarnings("rawtypes")
+  @Override
   public void init(NamedList arg0) {
   }
 

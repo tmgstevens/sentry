@@ -14,7 +14,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.solr.handler.component;
 
 import com.google.common.base.Splitter;
@@ -25,58 +24,58 @@ import java.util.regex.Pattern;
 
 public class FieldToAttributeMapping {
 
-    private static final Splitter ATTR_NAME_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
+  private static final Splitter ATTR_NAME_SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
-    private final String fieldName;
-    private final Collection<String> attributes;
-    private final FilterType filterType;
-    private final boolean acceptEmpty;
-    private final String allUsersValue;
-    private Pattern attrValueRegex;
-    private final String extraOpts;
+  private final String fieldName;
+  private final Collection<String> attributes;
+  private final FilterType filterType;
+  private final boolean acceptEmpty;
+  private final String allUsersValue;
+  private final Pattern attrValueRegex;
+  private final String extraOpts;
 
-    enum FilterType {
-        AND,
-        OR,
-        LTE,
-        GTE
-    }
+  enum FilterType {
+    AND,
+    OR,
+    LTE,
+    GTE
+  }
 
-    public FieldToAttributeMapping(String fieldName, String ldapAttributeNames, String filterType, boolean acceptEmpty, String allUsersValue, String valueFilterRegex, String extraOpts) {
-        this.fieldName = fieldName;
-        this.attributes = Sets.newHashSet(ATTR_NAME_SPLITTER.split(ldapAttributeNames));
-        this.filterType = FilterType.valueOf(filterType);
-        this.acceptEmpty = acceptEmpty;
-        this.allUsersValue = allUsersValue;
-        this.attrValueRegex = Pattern.compile(valueFilterRegex);
-        this.extraOpts = extraOpts;
-    }
+  public FieldToAttributeMapping(String fieldName, String ldapAttributeNames, String filterType, boolean acceptEmpty, String allUsersValue, String valueFilterRegex, String extraOpts) {
+    this.fieldName = fieldName;
+    this.attributes = Sets.newHashSet(ATTR_NAME_SPLITTER.split(ldapAttributeNames));
+    this.filterType = FilterType.valueOf(filterType);
+    this.acceptEmpty = acceptEmpty;
+    this.allUsersValue = allUsersValue;
+    this.attrValueRegex = Pattern.compile(valueFilterRegex);
+    this.extraOpts = extraOpts;
+  }
 
-    public String getFieldName() {
-        return fieldName;
-    }
+  public String getFieldName() {
+    return fieldName;
+  }
 
-    public Collection<String> getAttributes() {
-        return attributes;
-    }
+  public Collection<String> getAttributes() {
+    return attributes;
+  }
 
-    public FilterType getFilterType() {
-        return filterType;
-    }
+  public FilterType getFilterType() {
+    return filterType;
+  }
 
-    public boolean getAcceptEmpty() {
-        return acceptEmpty;
-    }
+  public boolean getAcceptEmpty() {
+    return acceptEmpty;
+  }
 
-    public String getAllUsersValue() {
-        return allUsersValue;
-    }
+  public String getAllUsersValue() {
+    return allUsersValue;
+  }
 
-    public Pattern getAttrValueRegex() {
-        return attrValueRegex;
-    }
+  public Pattern getAttrValueRegex() {
+    return attrValueRegex;
+  }
 
-    public String getExtraOpts() {
-        return extraOpts;
-    }
+  public String getExtraOpts() {
+    return extraOpts;
+  }
 }

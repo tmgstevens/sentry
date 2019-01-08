@@ -1,4 +1,4 @@
-package org.apache.solr.handler.component;/*
+/*
  * Licensed to the Apache Software Foundation (ASF) under one or more
  * contributor license agreements.  See the NOTICE file distributed with
  * this work for additional information regarding copyright ownership.
@@ -14,6 +14,7 @@ package org.apache.solr.handler.component;/*
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package org.apache.solr.handler.component;
 
 import org.apache.sentry.binding.solr.authz.SentrySolrPluginImpl;
 import org.apache.sentry.core.common.exception.SentryUserException;
@@ -27,46 +28,44 @@ import javax.servlet.http.HttpServletRequest;
 import java.util.Set;
 
 public abstract class DocAuthorizationComponent extends SearchComponent {
-  static final String superUser = System.getProperty("solr.authorization.superuser", "solr");
+  public static final String SUPERUSER = System.getProperty("solr.authorization.superuser", "solr");
 
   public abstract boolean getEnabled();
   /**
    * This method returns the roles associated with the specified <code>userName</code>
    */
-  Set<String> getRoles (SolrQueryRequest req, String userName) {
+  protected Set<String> getRoles(SolrQueryRequest req, String userName) {
     SolrCore solrCore = req.getCore();
 
     AuthorizationPlugin plugin = solrCore.getCoreContainer().getAuthorizationPlugin();
     if (!(plugin instanceof SentrySolrPluginImpl)) {
-      throw new SolrException(SolrException.ErrorCode.UNAUTHORIZED, getClass().getSimpleName() +
-          " can only be used with Sentry authorization plugin for Solr");
+      throw new SolrException(SolrException.ErrorCode.UNAUTHORIZED,
+          getClass().getSimpleName() + " can only be used with Sentry authorization plugin for Solr");
     }
     try {
-      return ((SentrySolrPluginImpl)plugin).getRoles(userName);
+      return ((SentrySolrPluginImpl) plugin).getRoles(userName);
     } catch (SentryUserException e) {
       throw new SolrException(SolrException.ErrorCode.UNAUTHORIZED,
-          "Request from user: " + userName +
-              " rejected due to SentryUserException: ", e);
+          "Request from user: " + userName + " rejected due to SentryUserException: ", e);
     }
   }
 
   /**
    * This method return the user name from the provided {@linkplain SolrQueryRequest}
    */
-  String getUserName (SolrQueryRequest req) {
+  protected String getUserName(SolrQueryRequest req) {
     // If a local request, treat it like a super user request; i.e. it is equivalent to an
     // http request from the same process.
     if (req instanceof LocalSolrQueryRequest) {
-      return superUser;
+      return SUPERUSER;
     }
 
     SolrCore solrCore = req.getCore();
 
-    HttpServletRequest httpServletRequest = (HttpServletRequest)req.getContext().get("httpRequest");
+    HttpServletRequest httpServletRequest = (HttpServletRequest) req.getContext().get("httpRequest");
     if (httpServletRequest == null) {
       StringBuilder builder = new StringBuilder("Unable to locate HttpServletRequest");
-      if (solrCore != null && solrCore.getSolrConfig().getBool(
-          "requestDispatcher/requestParsers/@addHttpRequestToContext", true) == false) {
+      if (solrCore != null && !solrCore.getSolrConfig().getBool("requestDispatcher/requestParsers/@addHttpRequestToContext", true)) {
         builder.append(", ensure requestDispatcher/requestParsers/@addHttpRequestToContext is set to true in solrconfig.xml");
       }
       throw new SolrException(SolrException.ErrorCode.UNAUTHORIZED, builder.toString());

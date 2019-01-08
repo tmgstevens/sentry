@@ -1,18 +1,19 @@
 /*
- * Licensed to the Apache Software Foundation (ASF) under one or more contributor license
- * agreements. See the NOTICE file distributed with this work for additional information regarding
- * copyright ownership. The ASF licenses this file to You under the Apache License, Version 2.0 (the
- * "License"); you may not use this file except in compliance with the License. You may obtain a
- * copy of the License at
+ * Licensed to the Apache Software Foundation (ASF) under one or more
+ * contributor license agreements.  See the NOTICE file distributed with
+ * this work for additional information regarding copyright ownership.
+ * The ASF licenses this file to You under the Apache License, Version 2.0
+ * (the "License"); you may not use this file except in compliance with
+ * the License.  You may obtain a copy of the License at
  *
- * http://www.apache.org/licenses/LICENSE-2.0
+ *     http://www.apache.org/licenses/LICENSE-2.0
  *
- * Unless required by applicable law or agreed to in writing, software distributed under the License
- * is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express
- * or implied. See the License for the specific language governing permissions and limitations under
- * the License.
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
-
 package org.apache.solr.handler.component;
 
 import com.google.common.annotations.VisibleForTesting;
@@ -53,7 +54,7 @@ import java.util.regex.Pattern;
  */
 public class SolrAttrBasedFilter extends DocAuthorizationComponent {
 
-  private static Logger log = LoggerFactory.getLogger(SolrAttrBasedFilter.class);
+  private static final Logger LOG = LoggerFactory.getLogger(SolrAttrBasedFilter.class);
 
   public static final String CACHE_ENABLED_PROP = "cache_enabled";
   public static final boolean CACHE_ENABLED_DEFAULT = false;
@@ -81,9 +82,9 @@ public class SolrAttrBasedFilter extends DocAuthorizationComponent {
 @SuppressWarnings({"rawtypes"})
   @Override
   public void init(NamedList args) {
-    log.debug("Initializing {}", this.getClass().getSimpleName());
+    LOG.debug("Initializing {}", this.getClass().getSimpleName());
 
-    SolrParams solrParams = SolrParams.toSolrParams(args);
+    SolrParams solrParams = args.toSolrParams();
     if (args.getBooleanArg(ENABLED_PROP) != null) {
       this.enabled = args.getBooleanArg(ENABLED_PROP);
     }
@@ -108,15 +109,14 @@ public class SolrAttrBasedFilter extends DocAuthorizationComponent {
     }
 
     if (this.userAttributeSource == null) {
-      UserAttributeSource userAttributeSource = buildUserAttributeSource(solrParams);
       if (solrParams.getBool(CACHE_ENABLED_PROP, CACHE_ENABLED_DEFAULT)) {
-        this.userAttributeSource = new CachingUserAttributeSource(userAttributeSource, solrParams.get(CACHE_SPEC_PROP));
+        this.userAttributeSource = new CachingUserAttributeSource(buildUserAttributeSource(solrParams), solrParams.get(CACHE_SPEC_PROP));
       } else {
-        this.userAttributeSource = userAttributeSource;
+        this.userAttributeSource = buildUserAttributeSource(solrParams);
       }
     }
 
-    this.andQParserName = ((String)checkAndGet(args, AND_OP_QPARSER)).trim();
+    this.andQParserName = this.<String>checkAndGet(args, AND_OP_QPARSER).trim();
   }
 
   private UserAttributeSource buildUserAttributeSource(SolrParams solrParams) {
@@ -125,11 +125,11 @@ public class SolrAttrBasedFilter extends DocAuthorizationComponent {
       combinedAttributes.addAll(mapping.getAttributes());
     }
 
-    String UserAttributeSourceClassname = solrParams.get(USER_ATTRIBUTE_SOURCE_CLASSNAME, USER_ATTRIBUTE_SOURCE_CLASSNAME_DEFAULT);
+    String userAttributeSourceClassname = solrParams.get(USER_ATTRIBUTE_SOURCE_CLASSNAME, USER_ATTRIBUTE_SOURCE_CLASSNAME_DEFAULT);
     try {
-      Class userAttributeSoureClass = Class.forName(UserAttributeSourceClassname);
+      Class userAttributeSoureClass = Class.forName(userAttributeSourceClassname);
 
-      UserAttributeSource attributeSource = (UserAttributeSource)userAttributeSoureClass.newInstance();
+      UserAttributeSource attributeSource = (UserAttributeSource) userAttributeSoureClass.newInstance();
 
       Class<? extends UserAttributeSourceParams> attributeSourceParamsClass = attributeSource.getParamsClass();
 
@@ -154,7 +154,7 @@ public class SolrAttrBasedFilter extends DocAuthorizationComponent {
     }
 
     String userName = getUserName(rb.req);
-    String superUser = (System.getProperty("solr.authorization.superuser", "solr"));
+    String superUser = System.getProperty("solr.authorization.superuser", "solr");
     if (superUser.equals(userName)) {
       return;
     }
@@ -164,9 +164,7 @@ public class SolrAttrBasedFilter extends DocAuthorizationComponent {
     Multimap<String, String> userAttributes = userAttributeSource.getAttributesForUser(userName);
     for (FieldToAttributeMapping mapping: fieldAttributeMappings) {
       String filterQuery = buildFilterQueryString(userAttributes, mapping);
-      if (log.isDebugEnabled()) {
-        log.debug("Adding filter clause : {}", filterQuery);
-      }
+      LOG.debug("Adding filter clause : {}", filterQuery);
       params.add("fq", filterQuery);
     }
 
@@ -206,14 +204,14 @@ public class SolrAttrBasedFilter extends DocAuthorizationComponent {
           // for example extracting common names out of a distinguished name
           // As an assumption, we're going to pull the last not-null value from the matcher and use that
           if (matcher.find()) {
-            for (int i=matcher.groupCount(); i>=0; i--){
+            for (int i = matcher.groupCount(); i >= 0; i--) {
               group = matcher.group(i);
               if (group != null) {
                 break;
               }
             }
           }
-          if (group!=null) {
+          if (group != null) {
             userAttributesSubset.add(group);
           }
         }
@@ -247,7 +245,7 @@ public class SolrAttrBasedFilter extends DocAuthorizationComponent {
     s.append("{!").append(andQParserName)
         .append(" set_field=").append(fieldName)
         .append(" set_value=").append(Joiner.on(',').join(attributeValues));
-    if (allUsersValue!=null && !allUsersValue.equals("")) {
+    if (allUsersValue != null && !allUsersValue.equals("")) {
         s.append(" wildcard_token=").append(allUsersValue);
     }
     if (allowEmptyField) {
@@ -269,7 +267,7 @@ public class SolrAttrBasedFilter extends DocAuthorizationComponent {
     } else if (allUsersValue != null && !allUsersValue.equals("")) {
         value = allUsersValue;
     } else {
-        throw new RuntimeException("Greater Than Filter Query cannot be built for field " + fieldName);
+        throw new IllegalArgumentException("Greater Than Filter Query cannot be built for field " + fieldName);
     }
     StringBuilder extraClause = new StringBuilder();
     if (allowEmptyField) {
@@ -288,7 +286,7 @@ public class SolrAttrBasedFilter extends DocAuthorizationComponent {
     } else if (allUsersValue != null && !allUsersValue.equals("")) {
         value = allUsersValue;
     } else {
-        throw new RuntimeException("Less Than Filter Query cannot be built for field " + fieldName);
+        throw new IllegalArgumentException("Less Than Filter Query cannot be built for field " + fieldName);
     }
     StringBuilder extraClause = new StringBuilder();
     if (allowEmptyField) {
@@ -319,7 +317,7 @@ public class SolrAttrBasedFilter extends DocAuthorizationComponent {
   }
 
   private <T> T getWithDefault(NamedList args, String key, T defaultValue) {
-    T value = (T)args.get(key);
+    T value = (T) args.get(key);
     if (value == null) {
       return defaultValue;
     } else {

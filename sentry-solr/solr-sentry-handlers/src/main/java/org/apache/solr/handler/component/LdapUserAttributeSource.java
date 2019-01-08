@@ -14,9 +14,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package org.apache.solr.handler.component;
 
+import com.google.common.base.Strings;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.LinkedHashMultimap;
@@ -37,7 +37,6 @@ import javax.naming.ldap.LdapContext;
 import javax.naming.ldap.StartTlsRequest;
 import javax.naming.ldap.StartTlsResponse;
 import javax.net.ssl.HostnameVerifier;
-import javax.net.ssl.SSLSession;
 import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
@@ -74,18 +73,12 @@ import static javax.naming.Context.SECURITY_PRINCIPAL;
  */
 public class LdapUserAttributeSource implements UserAttributeSource {
 
-  private static final HostnameVerifier PERMISSIVE_HOSTNAME_VERIFIER = new HostnameVerifier() {
-    @Override
-    public boolean verify(String hostname, SSLSession session) {
-      return true;
-    }
-  };
+  private static final HostnameVerifier PERMISSIVE_HOSTNAME_VERIFIER = (hostname, session) -> true;
+  private static final Logger LOG = LoggerFactory.getLogger(LdapUserAttributeSource.class);
 
-  private static Logger log = LoggerFactory.getLogger(LdapUserAttributeSource.class);
-
-  /** 
-   * Caching for recursive (nested) group lookup. 
-   * If nested groups are disabled, then disabling the cache by setting the size to zero may save some memory. 
+  /**
+   * Caching for recursive (nested) group lookup.
+   * If nested groups are disabled, then disabling the cache by setting the size to zero may save some memory.
    */
   private static final String DEFAULT_CACHE_BUILDER_SPEC = "maximumSize=1000,expireAfterWrite=5m";
 
@@ -93,13 +86,20 @@ public class LdapUserAttributeSource implements UserAttributeSource {
    * Singleton cache provides the parent group(s) for a given group. 
    * The cache classes are threadsafe so can be shared by multiple LdapUserAttributeSource instances. 
    */
-  private static Cache<String, Set<String>> scache;
-  public synchronized static Cache<String, Set<String>> getCache(String spec) {
-    if (scache == null) {
-      log.info("Creating access group cache, cacheSpec={}", spec);
-      scache = CacheBuilder.from(spec).build(); // No auto-load in case of a cache miss - must populate explicitly
+  private static volatile Cache<String, Set<String>> scache;
+  private static final Object SCACHE_SYNC = new Object();
+
+  public static Cache<String, Set<String>> getCache(String spec) {
+    if (scache != null) {
+      return scache;
     }
-    return scache;
+    synchronized (SCACHE_SYNC) {
+      if (scache == null) {
+        LOG.info("Creating access group cache, cacheSpec={}", spec);
+        scache = CacheBuilder.from(spec).build(); // No auto-load in case of a cache miss - must populate explicitly
+      }
+      return scache;
+    }
   }
 
   @SuppressWarnings({"rawtypes", "PMD.ReplaceHashtableWithMap"})
@@ -110,18 +110,14 @@ public class LdapUserAttributeSource implements UserAttributeSource {
   // Per-instance copy of the static singleton cache
   private Cache<String, Set<String>> cache;
 
-  public LdapUserAttributeSource() {
-
-  }
-
   public void init(UserAttributeSourceParams params, Collection<String> attributes) {
-    log.debug("Creating LDAP user attribute source, params={}, attributes={}", params, attributes);
+    LOG.debug("Creating LDAP user attribute source, params={}, attributes={}", params, attributes);
 
-    if ( !(params instanceof LdapUserAttributeSourceParams)) {
+    if (!(params instanceof LdapUserAttributeSourceParams)) {
       throw new SolrException(ErrorCode.INVALID_STATE, "LdapUserAttributeSource has been misconfigured with the wrong parameters {" + params.getClass().getName() + "}");
     }
 
-    this.params = (LdapUserAttributeSourceParams)params;
+    this.params = (LdapUserAttributeSourceParams) params;
     this.env = toEnv(this.params);
 
     searchControls = new SearchControls();
@@ -133,22 +129,22 @@ public class LdapUserAttributeSource implements UserAttributeSource {
     }
 
     String cacheSpec = this.params.getGroupCacheSpec();
-    String spec = (cacheSpec != null && !cacheSpec.equals("")) ? cacheSpec : DEFAULT_CACHE_BUILDER_SPEC;
+    String spec = Strings.isNullOrEmpty(cacheSpec) ? DEFAULT_CACHE_BUILDER_SPEC : cacheSpec;
     cache = getCache(spec); // Singleton; only the first spec seen will be used
   }
 
   @SuppressWarnings({"rawtypes", "unchecked", "PMD.ReplaceHashtableWithMap"})
   private Hashtable toEnv(LdapUserAttributeSourceParams params) {
-    final Hashtable env = new Hashtable();
-    env.put(INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
-    env.put(PROVIDER_URL, params.getServerUrl());
+    final Hashtable result = new Hashtable();
+    result.put(INITIAL_CONTEXT_FACTORY, "com.sun.jndi.ldap.LdapCtxFactory");
+    result.put(PROVIDER_URL, params.getServerUrl());
     String authType = params.getAuthType();
-    env.put(SECURITY_AUTHENTICATION, authType);
+    result.put(SECURITY_AUTHENTICATION, authType);
     if ("simple".equals(authType)) {
-      env.put(SECURITY_PRINCIPAL, params.getUsername());
-      env.put(SECURITY_CREDENTIALS, params.getPassword());
+      result.put(SECURITY_PRINCIPAL, params.getUsername());
+      result.put(SECURITY_CREDENTIALS, params.getPassword());
     }
-    return env;
+    return result;
   }
 
   /**
@@ -161,7 +157,7 @@ public class LdapUserAttributeSource implements UserAttributeSource {
     try {
       ctx = new InitialLdapContext(env, null);
       Multimap<String, String> result;
-      if (params.isStartTlsEnabled()){
+      if (params.isStartTlsEnabled()) {
         StartTlsResponse tls = (StartTlsResponse) ctx.extendedOperation(new StartTlsRequest());
         if (params.isHostNameVerificationDisabled()) {
           tls.setHostnameVerifier(PERMISSIVE_HOSTNAME_VERIFIER);
@@ -179,7 +175,8 @@ public class LdapUserAttributeSource implements UserAttributeSource {
       if (ctx != null) {
         try {
           ctx.close();
-        } catch (NamingException ignored) {}
+        } catch (NamingException ignored) {
+        }
       }
     }
   }
@@ -192,12 +189,12 @@ public class LdapUserAttributeSource implements UserAttributeSource {
   @SuppressWarnings({"rawtypes", "unchecked"})
   private Multimap<String, String> doAttributeSearch(String userName, LdapContext ctx) throws NamingException {
     NamingEnumeration searchResults = ctx.search(params.getBaseDn(), params.getUserFilter().replace("{0}", userName), searchControls);
-    Multimap<String,String> result = LinkedHashMultimap.create(); // NB LinkedHashMultimap does not allow duplicate values.
     if (!searchResults.hasMore()) {
-      log.error("User '" + userName + "' not found in LDAP");
+      LOG.error("User '{}' not found in LDAP", userName);
       throw new SolrException(ErrorCode.SERVER_ERROR, "User not found in LDAP");
     }
-    log.info("Fetching attributes for {} from LDAP using {}", userName, this);
+    LOG.info("Fetching attributes for {} from LDAP using {}", userName, this);
+    Multimap<String, String> result = LinkedHashMultimap.create(); // NB LinkedHashMultimap does not allow duplicate values.
     while (searchResults.hasMore()) {
       SearchResult entry = (SearchResult) searchResults.next();
       Attributes attributes = entry.getAttributes();
@@ -210,24 +207,24 @@ public class LdapUserAttributeSource implements UserAttributeSource {
         }
       }
     }
-    log.debug("Direct attributes found for user {}: {}", userName, result);
+    LOG.debug("Direct attributes found for user {}: {}", userName, result);
 
     // Optionally, recurse along the specified property such as "memberOf" to find indirect (nested) group memberships.
     // A maxDepth of 1 indicates that we find direct groups and parent groups. A maxDepth of 2 also includes grandparents, etc.
-    if (params.isNestedQueryEnabled() && params.getMaxRecurseDepth() > 0){
-      log.debug("Querying nested groups for user {} up to depth {}", userName, params.getMaxRecurseDepth());
+    if (params.isNestedQueryEnabled() && params.getMaxRecurseDepth() > 0) {
+      LOG.debug("Querying nested groups for user {} up to depth {}", userName, params.getMaxRecurseDepth());
       String recursiveAttr = params.getRecursiveAttribute(); // Configurable, but typically "memberOf"
       // Important: take a defensive copy of the original groups, because we modify the Multimap inside the loop:
       Set<String> values = new HashSet(result.get(recursiveAttr)); //  Multimap.get() is never null
       for (String group : values) {
-          Set<String> known = new HashSet<String>();
+          Set<String> known = new HashSet<>();
           known.add(group); // avoid cycles to self.
           getParentGroups(group, known, ctx, 1); // modifies the 'known' Set, adding any new groups found
           known.remove(group); // We already have this group in the result, or we wouldn't be here. Remove for clarity of logging:
-          log.debug("Adding parent groups for {} : {}", group, known);
+          LOG.debug("Adding parent groups for {} : {}", group, known);
           result.putAll(recursiveAttr, known);
       }
-      log.debug("Total attributes found for user {}: {}", userName, result);
+      LOG.debug("Total attributes found for user {}: {}", userName, result);
     }
     return result;
   }
@@ -237,13 +234,13 @@ public class LdapUserAttributeSource implements UserAttributeSource {
    * so that we can return both direct and indirect group memberships. Limit the depth of recursion. Detect and avoid loops.
    *
    * As a special case, caches the top-level "ancestor" groups (which have no parent groups) to reduce the number of LDAP queries. 
-   * Does not cache other groups because, in general, the cycle-detection may terminate recursion and prevent us from getting 
+   * Does not cache other groups because, in general, the cycle-detection may terminate recursion and prevent us from getting
    * and thus caching a full picture of the groups reachable from a given group. It would also be possible to cache the bottom-level
    * groups in the main loop in doAttributeSearch, but this is not implemented at present.
    */
   @SuppressWarnings({"rawtypes", "unchecked"})
   private Set<String> getParentGroups(String childGroup, Set<String> knownGroups, LdapContext ctx, int depth) throws NamingException {
-    // Throw an exception if we have exceeded the recursion depth; this causes the entire query to fail. 
+    // Throw an exception if we have exceeded the recursion depth; this causes the entire query to fail.
     // This alerts us that the recursion depth is insufficient to traverse all of the user's nested groups
     // and will need increasing (or the group structure will need to be simplified).
     if (depth > params.getMaxRecurseDepth()) {
@@ -255,11 +252,11 @@ public class LdapUserAttributeSource implements UserAttributeSource {
     // First try the cache:
     Set<String> parents = cache.getIfPresent(childGroup); // nullable
     if (parents != null) {
-      log.debug("Cache hit for {} : {}", childGroup, parents); // Currently we only cache "ancestor" groups, which have NO parents!
+      LOG.debug("Cache hit for {} : {}", childGroup, parents); // Currently we only cache "ancestor" groups, which have NO parents!
       knownGroups.addAll(parents); // Added since 0.0.6-SNAPSHOT delivered to site; important fix for when we start caching non-ancestor groups
       return parents; // cache hit
     } else { // Cache miss
-     log.debug("Querying LDAP for parent groups of {} at depth {}...", childGroup, depth);
+     LOG.debug("Querying LDAP for parent groups of {} at depth {}...", childGroup, depth);
       String recursiveAttr = params.getRecursiveAttribute(); // Configurable, but typically "memberOf"
 
       // There may be potential optimisations here if we can skip queries for some groups
@@ -268,24 +265,23 @@ public class LdapUserAttributeSource implements UserAttributeSource {
       Attributes atts = ctx.getAttributes(childGroup, new String[] {recursiveAttr}); // attributes such as memberOf will return the DN; the regex in solrconfig.xml will need to extract the CN from the DN.
       Attribute att = atts.get(recursiveAttr);
       if (att != null && att.size() > 0) {
-        log.debug("Group {} has direct parent groups: {}", childGroup, att);
+        LOG.debug("Group {} has direct parent groups: {}", childGroup, att);
         NamingEnumeration<?> parentGroups = att.getAll();
         while (parentGroups.hasMore()) {
           String parentGroup = parentGroups.next().toString();
           // Skip recursion if we've seen this group before; avoid cycles and multiple paths through same ancestors
           if (knownGroups.add(parentGroup)) {
-            log.debug("Found new parent group: {} - recursing...", parentGroup);
+            LOG.debug("Found new parent group: {} - recursing...", parentGroup);
             // Recurse until we find a group that has no parents, or we hit the depth limit (which throws an Exception above)
-            getParentGroups(parentGroup, knownGroups, ctx, depth+1);
+            getParentGroups(parentGroup, knownGroups, ctx, depth + 1);
             // Don't cache these results! They may be incomplete because cycle detection will stop recursion early.
           } else {
-            log.debug("Cycle detected for parent group: {} - stopping recursion.", parentGroup);
+            LOG.debug("Cycle detected for parent group: {} - stopping recursion.", parentGroup);
           }
         }
-      }
-      else {
-        log.debug("No parent groups found for group {}", childGroup);
-        cache.put(childGroup, Collections.EMPTY_SET); // This is an "ancestor" group with no parents
+      } else {
+        LOG.debug("No parent groups found for group {}", childGroup);
+        cache.put(childGroup, Collections.emptySet()); // This is an "ancestor" group with no parents
       }
       return knownGroups;
     }
