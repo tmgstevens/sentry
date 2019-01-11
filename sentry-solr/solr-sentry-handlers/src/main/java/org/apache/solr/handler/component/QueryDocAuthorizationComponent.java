@@ -52,7 +52,6 @@ public class QueryDocAuthorizationComponent extends DocAuthorizationComponent {
 
   private String qParserName;
 
-
   private enum MatchType {
     DISJUNCTIVE,
     CONJUNCTIVE
@@ -102,16 +101,7 @@ public class QueryDocAuthorizationComponent extends DocAuthorizationComponent {
   }
 
   @Override
-  public void prepare(ResponseBuilder rb) throws IOException {
-    if (!enabled) {
-      return;
-    }
-
-    String userName = getUserName(rb.req);
-    if (SUPERUSER.equals(userName)) {
-      return;
-    }
-
+  public void prepare(ResponseBuilder rb, String userName) throws IOException {
     Set<String> roles = getRoles(rb.req, userName);
     if (roles != null && !roles.isEmpty()) {
       String filterQuery;
@@ -157,8 +147,8 @@ public class QueryDocAuthorizationComponent extends DocAuthorizationComponent {
     return "Handle Query Document Authorization";
   }
 
+  @Override
   public boolean getEnabled() {
     return enabled;
   }
-
 }

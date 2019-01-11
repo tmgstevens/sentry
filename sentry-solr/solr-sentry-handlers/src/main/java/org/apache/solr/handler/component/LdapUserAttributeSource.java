@@ -82,9 +82,9 @@ public class LdapUserAttributeSource implements UserAttributeSource {
    */
   private static final String DEFAULT_CACHE_BUILDER_SPEC = "maximumSize=1000,expireAfterWrite=5m";
 
-  /** 
-   * Singleton cache provides the parent group(s) for a given group. 
-   * The cache classes are threadsafe so can be shared by multiple LdapUserAttributeSource instances. 
+  /**
+   * Singleton cache provides the parent group(s) for a given group.
+   * The cache classes are threadsafe so can be shared by multiple LdapUserAttributeSource instances.
    */
   private static volatile Cache<String, Set<String>> scache;
   private static final Object SCACHE_SYNC = new Object();
@@ -230,10 +230,10 @@ public class LdapUserAttributeSource implements UserAttributeSource {
   }
 
   /**
-   * Recursively find the parent groups (if any) of the specified group, and add them to the user's direct attribute, 
+   * Recursively find the parent groups (if any) of the specified group, and add them to the user's direct attribute,
    * so that we can return both direct and indirect group memberships. Limit the depth of recursion. Detect and avoid loops.
    *
-   * As a special case, caches the top-level "ancestor" groups (which have no parent groups) to reduce the number of LDAP queries. 
+   * As a special case, caches the top-level "ancestor" groups (which have no parent groups) to reduce the number of LDAP queries.
    * Does not cache other groups because, in general, the cycle-detection may terminate recursion and prevent us from getting
    * and thus caching a full picture of the groups reachable from a given group. It would also be possible to cache the bottom-level
    * groups in the main loop in doAttributeSearch, but this is not implemented at present.

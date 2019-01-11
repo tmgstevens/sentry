@@ -25,16 +25,20 @@ import org.apache.solr.request.SolrQueryRequest;
 import org.apache.solr.security.AuthorizationPlugin;
 
 import javax.servlet.http.HttpServletRequest;
+import java.io.IOException;
 import java.util.Set;
 
 public abstract class DocAuthorizationComponent extends SearchComponent {
   public static final String SUPERUSER = System.getProperty("solr.authorization.superuser", "solr");
 
   public abstract boolean getEnabled();
+
+  public abstract void prepare(ResponseBuilder rb, String userName) throws IOException;
+
   /**
    * This method returns the roles associated with the specified <code>userName</code>
    */
-  protected Set<String> getRoles(SolrQueryRequest req, String userName) {
+  protected final Set<String> getRoles(SolrQueryRequest req, String userName) {
     SolrCore solrCore = req.getCore();
 
     AuthorizationPlugin plugin = solrCore.getCoreContainer().getAuthorizationPlugin();
@@ -53,7 +57,7 @@ public abstract class DocAuthorizationComponent extends SearchComponent {
   /**
    * This method return the user name from the provided {@linkplain SolrQueryRequest}
    */
-  protected String getUserName(SolrQueryRequest req) {
+  protected final String getUserName(SolrQueryRequest req) {
     // If a local request, treat it like a super user request; i.e. it is equivalent to an
     // http request from the same process.
     if (req instanceof LocalSolrQueryRequest) {
@@ -82,4 +86,17 @@ public abstract class DocAuthorizationComponent extends SearchComponent {
     return userName;
   }
 
+  @Override
+  public final void prepare(ResponseBuilder rb) throws IOException {
+    if (!getEnabled()) {
+      return;
+    }
+
+    String userName = getUserName(rb.req);
+    if (SUPERUSER.equals(userName)) {
+      return;
+    }
+
+    prepare(rb, userName);
+  }
 }

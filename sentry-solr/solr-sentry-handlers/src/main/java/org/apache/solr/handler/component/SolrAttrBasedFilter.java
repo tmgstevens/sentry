@@ -148,17 +148,7 @@ public class SolrAttrBasedFilter extends DocAuthorizationComponent {
 
   @SuppressWarnings("rawtypes")
   @Override
-  public void prepare(ResponseBuilder rb) throws IOException {
-    if (!enabled) {
-      return;
-    }
-
-    String userName = getUserName(rb.req);
-    String superUser = System.getProperty("solr.authorization.superuser", "solr");
-    if (superUser.equals(userName)) {
-      return;
-    }
-
+  public void prepare(ResponseBuilder rb, String userName) throws IOException {
     ModifiableSolrParams params = new ModifiableSolrParams(rb.req.getParams());
 
     Multimap<String, String> userAttributes = userAttributeSource.getAttributesForUser(userName);
