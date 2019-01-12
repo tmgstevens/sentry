@@ -49,7 +49,7 @@ public class CachingUserAttributeSourceTest {
         mockUserAttributes.put("attr3", "3");
         Mockito.when(mockUserAttributeSource.getAttributesForUser(Mockito.<String>any())).thenReturn(mockUserAttributes);
 
-        CachingUserAttributeSource cachingUserAttributeSource = new CachingUserAttributeSource(mockUserAttributeSource);
+        CachingUserAttributeSource cachingUserAttributeSource = new CachingUserAttributeSource(mockUserAttributeSource, SolrAttrBasedFilter.CACHE_TTL_DEFAULT, SolrAttrBasedFilter.CACHE_MAX_SIZE_DEFAULT);
 
         // call caching source a bunch of times...
         cachingUserAttributeSource.getAttributesForUser("user1");

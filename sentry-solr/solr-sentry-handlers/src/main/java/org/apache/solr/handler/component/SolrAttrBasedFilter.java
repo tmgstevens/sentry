@@ -58,7 +58,10 @@ public class SolrAttrBasedFilter extends DocAuthorizationComponent {
 
   public static final String CACHE_ENABLED_PROP = "cache_enabled";
   public static final boolean CACHE_ENABLED_DEFAULT = false;
-  public static final String CACHE_SPEC_PROP = "cache_spec";
+  public static final String CACHE_TTL_PROP = "cache_ttl_seconds";
+  public static final long CACHE_TTL_DEFAULT = 30;
+  public static final String CACHE_MAX_SIZE_PROP = "cache_max_size";
+  public static final long CACHE_MAX_SIZE_DEFAULT = 1000;
   public static final String ENABLED_PROP = "enabled";
   public static final String FIELD_ATTR_MAPPINGS = "field_attr_mappings";
 
@@ -110,7 +113,7 @@ public class SolrAttrBasedFilter extends DocAuthorizationComponent {
 
     if (this.userAttributeSource == null) {
       if (solrParams.getBool(CACHE_ENABLED_PROP, CACHE_ENABLED_DEFAULT)) {
-        this.userAttributeSource = new CachingUserAttributeSource(buildUserAttributeSource(solrParams), solrParams.get(CACHE_SPEC_PROP));
+        this.userAttributeSource = new CachingUserAttributeSource(buildUserAttributeSource(solrParams), solrParams.getLong(CACHE_TTL_PROP, CACHE_TTL_DEFAULT), solrParams.getLong(CACHE_MAX_SIZE_PROP, CACHE_MAX_SIZE_DEFAULT));
       } else {
         this.userAttributeSource = buildUserAttributeSource(solrParams);
       }

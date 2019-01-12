@@ -73,7 +73,8 @@
     <bool name="enabled">true</bool>
     <!-- caching parameters -->
     <bool name="cache_enabled">true</bool>
-    <str name="cache_spec">maximumSize=100,expireAfterWrite=10m</str>
+    <long name="cache_ttl_seconds">20</long>
+    <long name="cache_max_size">10</long>
     <!-- LDAP parameters -->
     <str name="ldapProviderUrl">ldap://localhost:10389</str>
     <str name="ldapAuthType">simple</str>
