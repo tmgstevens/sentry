@@ -31,34 +31,109 @@ import static org.mockito.Mockito.times;
 
 public class CachingUserAttributeSourceTest {
 
-    @Mock
-    private UserAttributeSource mockUserAttributeSource;
+  @Mock
+  private UserAttributeSource mockUserAttributeSource;
 
-    @Before
-    public void setup() {
-        MockitoAnnotations.initMocks(this);
+  @Before
+  public void setup() {
+      MockitoAnnotations.initMocks(this);
+  }
+
+  @Test
+  public void testWithMocks(){
+
+    // configure mock LDAP response
+    Multimap<String, String> mockUserAttributes = LinkedListMultimap.create();
+    mockUserAttributes.putAll("attr1", Arrays.asList("A", "B", "C"));
+    mockUserAttributes.put("attr2", "DEF");
+    mockUserAttributes.put("attr3", "3");
+    Mockito.when(mockUserAttributeSource.getAttributesForUser(Mockito.<String>any())).thenReturn(mockUserAttributes);
+
+    CachingUserAttributeSource cachingUserAttributeSource = new CachingUserAttributeSource(mockUserAttributeSource, SolrAttrBasedFilter.CACHE_TTL_DEFAULT, SolrAttrBasedFilter.CACHE_MAX_SIZE_DEFAULT);
+
+    // call caching source a bunch of times...
+    cachingUserAttributeSource.getAttributesForUser("user1");
+    cachingUserAttributeSource.getAttributesForUser("user1");
+    cachingUserAttributeSource.getAttributesForUser("user1");
+    cachingUserAttributeSource.getAttributesForUser("user1");
+
+    // ... but make sure underlying source only got called once
+    Mockito.verify(mockUserAttributeSource, times(1)).getAttributesForUser("user1");
+
+  }
+
+  @Test
+  public void testCacheSizeWithMocks(){
+
+    // configure mock LDAP response
+    Multimap<String, String> mockUserAttributes = LinkedListMultimap.create();
+    mockUserAttributes.putAll("attr1", Arrays.asList("A", "B", "C"));
+    mockUserAttributes.put("attr2", "DEF");
+    mockUserAttributes.put("attr3", "3");
+    Mockito.when(mockUserAttributeSource.getAttributesForUser(Mockito.<String>any())).thenReturn(mockUserAttributes);
+
+    CachingUserAttributeSource cachingUserAttributeSource = new CachingUserAttributeSource(mockUserAttributeSource, SolrAttrBasedFilter.CACHE_TTL_DEFAULT, 3);
+
+    // call caching source a bunch of times...
+    cachingUserAttributeSource.getAttributesForUser("user1");
+    cachingUserAttributeSource.getAttributesForUser("user2");
+    cachingUserAttributeSource.getAttributesForUser("user3");
+    cachingUserAttributeSource.getAttributesForUser("user1");
+    cachingUserAttributeSource.getAttributesForUser("user2");
+    cachingUserAttributeSource.getAttributesForUser("user3");
+
+    // ... but make sure underlying source only got called once
+    Mockito.verify(mockUserAttributeSource, times(1)).getAttributesForUser("user1");
+    Mockito.verify(mockUserAttributeSource, times(1)).getAttributesForUser("user2");
+    Mockito.verify(mockUserAttributeSource, times(1)).getAttributesForUser("user3");
+
+    // Now request a fourth user and therefore age out user1
+    cachingUserAttributeSource.getAttributesForUser("user4");
+    cachingUserAttributeSource.getAttributesForUser("user1");
+
+    Mockito.verify(mockUserAttributeSource, times(2)).getAttributesForUser("user1");
+
+
+  }
+
+  @Test
+  public void testCacheTtlWithMocks(){
+
+    // configure mock LDAP response
+    Multimap<String, String> mockUserAttributes = LinkedListMultimap.create();
+    mockUserAttributes.putAll("attr1", Arrays.asList("A", "B", "C"));
+    mockUserAttributes.put("attr2", "DEF");
+    mockUserAttributes.put("attr3", "3");
+    Mockito.when(mockUserAttributeSource.getAttributesForUser(Mockito.<String>any())).thenReturn(mockUserAttributes);
+
+    // Create a cache with a 1s TTL
+    CachingUserAttributeSource cachingUserAttributeSource = new CachingUserAttributeSource(mockUserAttributeSource, 1, 100);
+
+    // call caching source a bunch of times...
+    cachingUserAttributeSource.getAttributesForUser("user1");
+    cachingUserAttributeSource.getAttributesForUser("user2");
+    cachingUserAttributeSource.getAttributesForUser("user3");
+    cachingUserAttributeSource.getAttributesForUser("user1");
+    cachingUserAttributeSource.getAttributesForUser("user2");
+    cachingUserAttributeSource.getAttributesForUser("user3");
+
+    // ... but make sure underlying source only got called once
+    Mockito.verify(mockUserAttributeSource, times(1)).getAttributesForUser("user1");
+    Mockito.verify(mockUserAttributeSource, times(1)).getAttributesForUser("user2");
+    Mockito.verify(mockUserAttributeSource, times(1)).getAttributesForUser("user3");
+
+    try {
+        Thread.sleep(1500);
+    } catch (InterruptedException e) {
     }
+    // Now let the cache age out the entries
+    cachingUserAttributeSource.getAttributesForUser("user1");
+    cachingUserAttributeSource.getAttributesForUser("user2");
+    cachingUserAttributeSource.getAttributesForUser("user3");
 
-    @Test
-    public void testWithMocks(){
+    Mockito.verify(mockUserAttributeSource, times(2)).getAttributesForUser("user1");
+    Mockito.verify(mockUserAttributeSource, times(2)).getAttributesForUser("user2");
+    Mockito.verify(mockUserAttributeSource, times(2)).getAttributesForUser("user3");
 
-        // configure mock LDAP response
-        Multimap<String, String> mockUserAttributes = LinkedListMultimap.create();
-        mockUserAttributes.putAll("attr1", Arrays.asList("A", "B", "C"));
-        mockUserAttributes.put("attr2", "DEF");
-        mockUserAttributes.put("attr3", "3");
-        Mockito.when(mockUserAttributeSource.getAttributesForUser(Mockito.<String>any())).thenReturn(mockUserAttributes);
-
-        CachingUserAttributeSource cachingUserAttributeSource = new CachingUserAttributeSource(mockUserAttributeSource, SolrAttrBasedFilter.CACHE_TTL_DEFAULT, SolrAttrBasedFilter.CACHE_MAX_SIZE_DEFAULT);
-
-        // call caching source a bunch of times...
-        cachingUserAttributeSource.getAttributesForUser("user1");
-        cachingUserAttributeSource.getAttributesForUser("user1");
-        cachingUserAttributeSource.getAttributesForUser("user1");
-        cachingUserAttributeSource.getAttributesForUser("user1");
-
-        // ... but make sure underlying source only got called once
-        Mockito.verify(mockUserAttributeSource, times(1)).getAttributesForUser("user1");
-
-    }
+  }
 }

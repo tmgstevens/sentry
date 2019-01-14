@@ -16,7 +16,6 @@ package org.apache.solr.handler.component;
  * limitations under the License.
  */
 
-
 import org.apache.solr.SolrTestCaseJ4;
 import org.apache.solr.schema.IndexSchema;
 import org.apache.solr.schema.SchemaField;
