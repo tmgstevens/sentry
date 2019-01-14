@@ -17,6 +17,7 @@
 
 package org.apache.solr.handler.component;
 
+import com.google.common.base.Ticker;
 import com.google.common.collect.LinkedListMultimap;
 import com.google.common.collect.Multimap;
 import org.junit.Before;
@@ -25,6 +26,7 @@ import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 
+import java.time.Duration;
 import java.util.Arrays;
 
 import static org.mockito.Mockito.times;
@@ -107,7 +109,8 @@ public class CachingUserAttributeSourceTest {
     Mockito.when(mockUserAttributeSource.getAttributesForUser(Mockito.<String>any())).thenReturn(mockUserAttributes);
 
     // Create a cache with a 1s TTL
-    CachingUserAttributeSource cachingUserAttributeSource = new CachingUserAttributeSource(mockUserAttributeSource, 1, 100);
+    FastForwardTicker time = new FastForwardTicker();
+    CachingUserAttributeSource cachingUserAttributeSource = new CachingUserAttributeSource(mockUserAttributeSource, 1, 100, time);
 
     // call caching source a bunch of times...
     cachingUserAttributeSource.getAttributesForUser("user1");
@@ -122,10 +125,9 @@ public class CachingUserAttributeSourceTest {
     Mockito.verify(mockUserAttributeSource, times(1)).getAttributesForUser("user2");
     Mockito.verify(mockUserAttributeSource, times(1)).getAttributesForUser("user3");
 
-    try {
-        Thread.sleep(1500);
-    } catch (InterruptedException e) {
-    }
+    // "Wait" for 2 seconds
+    time.fastForward(Duration.ofSeconds(2));
+
     // Now let the cache age out the entries
     cachingUserAttributeSource.getAttributesForUser("user1");
     cachingUserAttributeSource.getAttributesForUser("user2");
@@ -135,5 +137,18 @@ public class CachingUserAttributeSourceTest {
     Mockito.verify(mockUserAttributeSource, times(2)).getAttributesForUser("user2");
     Mockito.verify(mockUserAttributeSource, times(2)).getAttributesForUser("user3");
 
+  }
+
+  private static class FastForwardTicker extends Ticker {
+    private long tnanos = 0L;
+
+    public void fastForward(Duration interval){
+      tnanos += interval.toNanos();
+    }
+
+    @Override
+    public long read() {
+      return tnanos;
+    }
   }
 }

@@ -16,6 +16,8 @@
  */
 package org.apache.solr.handler.component;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Ticker;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -34,6 +36,11 @@ public class CachingUserAttributeSource implements UserAttributeSource {
   private final LoadingCache<String, Multimap<String, String>> cache;
 
   public CachingUserAttributeSource(final UserAttributeSource userAttributeSource, long ttlSeconds, long maxCacheSize) {
+    this(userAttributeSource, ttlSeconds, maxCacheSize, null);
+  }
+
+  @VisibleForTesting
+  /* default */ CachingUserAttributeSource(final UserAttributeSource userAttributeSource, long ttlSeconds, long maxCacheSize, Ticker ticker) {
     LOG.debug("Creating cached user attribute source, userAttributeSource={}, ttlSeconds={}, maxCacheSize={}", userAttributeSource, ttlSeconds, maxCacheSize);
     CacheLoader<String, Multimap<String, String>> cacheLoader = new CacheLoader<String, Multimap<String, String>>() {
       public Multimap<String, String> load(String userName) {
@@ -41,7 +48,11 @@ public class CachingUserAttributeSource implements UserAttributeSource {
         return userAttributeSource.getAttributesForUser(userName);
       }
     };
-    cache = CacheBuilder.newBuilder().expireAfterWrite(ttlSeconds, TimeUnit.SECONDS).maximumSize(maxCacheSize).build(cacheLoader);
+    CacheBuilder builder = CacheBuilder.newBuilder().expireAfterWrite(ttlSeconds, TimeUnit.SECONDS).maximumSize(maxCacheSize);
+    if (ticker != null) {
+      builder.ticker(ticker);
+    }
+    cache = builder.build(cacheLoader);
   }
 
   @Override
@@ -61,7 +72,5 @@ public class CachingUserAttributeSource implements UserAttributeSource {
 
   @Override
   public void init(UserAttributeSourceParams params, Collection<String> attributes) {
-
   }
-
 }
