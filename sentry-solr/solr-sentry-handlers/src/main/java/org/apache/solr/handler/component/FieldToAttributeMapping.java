@@ -20,6 +20,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.Sets;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.regex.Pattern;
 
 public class FieldToAttributeMapping {
@@ -43,7 +44,7 @@ public class FieldToAttributeMapping {
 
   public FieldToAttributeMapping(String fieldName, String ldapAttributeNames, String filterType, boolean acceptEmpty, String allUsersValue, String valueFilterRegex, String extraOpts) {
     this.fieldName = fieldName;
-    this.attributes = Sets.newHashSet(ATTR_NAME_SPLITTER.split(ldapAttributeNames));
+    this.attributes = Collections.unmodifiableSet(Sets.newHashSet(ATTR_NAME_SPLITTER.split(ldapAttributeNames)));
     this.filterType = FilterType.valueOf(filterType);
     this.acceptEmpty = acceptEmpty;
     this.allUsersValue = allUsersValue;
