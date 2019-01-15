@@ -327,4 +327,3 @@ public class SubsetQueryTest extends SolrTestCaseJ4 {
   }
 
 }
-

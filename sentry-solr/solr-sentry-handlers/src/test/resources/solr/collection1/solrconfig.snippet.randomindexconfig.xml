@@ -16,7 +16,7 @@
  See the License for the specific language governing permissions and
  limitations under the License.
 -->
-<!-- 
+<!--
 
 A solrconfig.xml snippet containing indexConfig settings for randomized testing.
 
@@ -27,7 +27,7 @@ A solrconfig.xml snippet containing indexConfig settings for randomized testing.
        Merge behavior, so those tests can set it as needed.
   -->
   <mergePolicyFactory class="${solr.tests.mergePolicyFactory:org.apache.solr.util.RandomMergePolicyFactory}" />
-  
+
   <useCompoundFile>${useCompoundFile:false}</useCompoundFile>
 
   <maxBufferedDocs>${solr.tests.maxBufferedDocs}</maxBufferedDocs>
