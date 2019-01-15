@@ -16,7 +16,6 @@
  */
 package org.apache.solr.handler.component;
 
-import com.google.common.base.Strings;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.LinkedHashMultimap;
@@ -43,6 +42,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.Hashtable;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 
 import static javax.naming.Context.INITIAL_CONTEXT_FACTORY;
 import static javax.naming.Context.PROVIDER_URL;
@@ -77,26 +77,20 @@ public class LdapUserAttributeSource implements UserAttributeSource {
   private static final Logger LOG = LoggerFactory.getLogger(LdapUserAttributeSource.class);
 
   /**
-   * Caching for recursive (nested) group lookup.
-   * If nested groups are disabled, then disabling the cache by setting the size to zero may save some memory.
-   */
-  private static final String DEFAULT_CACHE_BUILDER_SPEC = "maximumSize=1000,expireAfterWrite=5m";
-
-  /**
    * Singleton cache provides the parent group(s) for a given group.
    * The cache classes are threadsafe so can be shared by multiple LdapUserAttributeSource instances.
    */
   private static volatile Cache<String, Set<String>> scache;
   private static final Object SCACHE_SYNC = new Object();
 
-  public static Cache<String, Set<String>> getCache(String spec) {
+  public static Cache<String, Set<String>> getCache(long ttlSeconds, long maxCacheSize) {
     if (scache != null) {
       return scache;
     }
     synchronized (SCACHE_SYNC) {
       if (scache == null) {
-        LOG.info("Creating access group cache, cacheSpec={}", spec);
-        scache = CacheBuilder.from(spec).build(); // No auto-load in case of a cache miss - must populate explicitly
+        LOG.info("Creating access group cache, ttl={} maxSize={}", ttlSeconds, maxCacheSize);
+        scache = CacheBuilder.newBuilder().expireAfterWrite(ttlSeconds, TimeUnit.SECONDS).maximumSize(maxCacheSize).build(); // No auto-load in case of a cache miss - must populate explicitly
       }
       return scache;
     }
@@ -128,9 +122,9 @@ public class LdapUserAttributeSource implements UserAttributeSource {
       throw new SolrException(ErrorCode.SERVER_ERROR, "Start TLS should not be used with ldaps://");
     }
 
-    String cacheSpec = this.params.getGroupCacheSpec();
-    String spec = Strings.isNullOrEmpty(cacheSpec) ? DEFAULT_CACHE_BUILDER_SPEC : cacheSpec;
-    cache = getCache(spec); // Singleton; only the first spec seen will be used
+    long cacheTtl = this.params.getGroupCacheTtl();
+    long cacheMaxSize = this.params.getGroupCacheMaxSize();
+    cache = getCache(cacheTtl, cacheMaxSize); // Singleton; only the first spec seen will be used
   }
 
   @SuppressWarnings({"rawtypes", "unchecked", "PMD.ReplaceHashtableWithMap"})

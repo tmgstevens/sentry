@@ -34,7 +34,8 @@ public class LdapUserAttributeSourceParams implements UserAttributeSourceParams 
   private boolean doNestedQuery;     // Whether to recursively follow recursiveAttribute to find parent groups
   private String recursiveAttribute; // Only required if doNestedQuery==true
   private int maxRecurseDepth;       // Only used if doNestedQuery==true
-  private String groupCacheSpec;
+  private long groupCacheTtl;
+  private long groupCacheMaxSize;
 
   public static final String LDAP_ADMIN_USER = "ldapAdminUser";
   public static final String LDAP_ADMIN_PASSWORD = "ldapAdminPassword";
@@ -58,8 +59,10 @@ public class LdapUserAttributeSourceParams implements UserAttributeSourceParams 
   public static final int LDAP_MAX_RECURSE_DEPTH_DEFAULT = 5;
 
   // Caching of access groups to reduce number of LDAP queries for nested groups
-  public static final String LDAP_GROUP_CACHE_SPEC_PROP = "ldapGroupCacheSpec";
-  public static final String LDAP_GROUP_CACHE_SPEC_DEFAULT = "maximumSize=1000,expireAfterWrite=5m";
+  public static final String LDAP_GROUP_CACHE_TTL_SECONDS = "ldapGroupCacheTtlSeconds";
+  public static final long LDAP_GROUP_CACHE_TTL_SECONDS_DEFAULT = 30;
+  public static final String LDAP_GROUP_CACHE_MAX_SIZE = "ldapGroupCacheMaxSize";
+  public static final long LDAP_GROUP_CACHE_MAX_SIZE_DEFAULT = 1000;
 
   public String getAuthType() {
     return authType;
@@ -153,12 +156,20 @@ public class LdapUserAttributeSourceParams implements UserAttributeSourceParams 
     this.maxRecurseDepth = maxDepth;
   }
 
-  public String getGroupCacheSpec() {
-    return groupCacheSpec;
+  public long getGroupCacheTtl() {
+    return groupCacheTtl;
   }
 
-  public void setGroupCacheSpec(String spec) {
-    this.groupCacheSpec = spec;
+  public void setGroupCacheTtl(long groupCacheTtl) {
+    this.groupCacheTtl = groupCacheTtl;
+  }
+
+  public long getGroupCacheMaxSize() {
+    return groupCacheMaxSize;
+  }
+
+  public void setGroupCacheMaxSize(long groupCacheMaxSize) {
+    this.groupCacheMaxSize = groupCacheMaxSize;
   }
 
   // Note that equals(), hashCode() and toString() currently only use a subset of the attributes above - do they need extending?
@@ -210,6 +221,7 @@ public class LdapUserAttributeSourceParams implements UserAttributeSourceParams 
     setNestedQueryEnabled(solrParams.getBool(LDAP_NESTED_GROUPS_ENABLED, LDAP_NESTED_GROUPS_ENABLED_DEFAULT));
     setRecursiveAttribute(solrParams.get(LDAP_RECURSIVE_ATTRIBUTE, LDAP_RECURSIVE_ATTRIBUTE_DEFAULT));
     setMaxRecurseDepth(solrParams.getInt(LDAP_MAX_RECURSE_DEPTH, LDAP_MAX_RECURSE_DEPTH_DEFAULT));
-    setGroupCacheSpec(solrParams.get(LDAP_GROUP_CACHE_SPEC_PROP, LDAP_GROUP_CACHE_SPEC_DEFAULT));
+    setGroupCacheMaxSize(solrParams.getLong(LDAP_GROUP_CACHE_MAX_SIZE, LDAP_GROUP_CACHE_MAX_SIZE_DEFAULT));
+    setGroupCacheTtl(solrParams.getLong(LDAP_GROUP_CACHE_TTL_SECONDS, LDAP_GROUP_CACHE_TTL_SECONDS_DEFAULT));
   }
 }
