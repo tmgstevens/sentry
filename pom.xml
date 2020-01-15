@@ -78,7 +78,7 @@ limitations under the License.
     <jdo-api.version>3.0.1</jdo-api.version>
     <jetty.version>9.3.21.v20170918</jetty.version>
     <joda-time.version>2.5</joda-time.version>
-    <junit.version>4.10</junit.version>
+    <junit.version>4.12</junit.version>
     <kafka.version>1.0.0</kafka.version>
     <libfb303.version>0.9.3</libfb303.version>
     <libthrift.version>0.9.3</libthrift.version>
@@ -94,7 +94,7 @@ limitations under the License.
     <pig.version>0.12.0</pig.version>
     <shiro.version>1.4.0</shiro.version>
     <slf4j.version>1.7.25</slf4j.version>
-    <solr.version>7.4.0</solr.version>
+    <solr.version>8.4.1</solr.version>
     <sqoop.version>1.99.7</sqoop.version>
     <surefire.version>2.20.1</surefire.version>
     <test.sentry.hadoop.classpath>${maven.test.classpath}</test.sentry.hadoop.classpath>
